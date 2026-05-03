@@ -42,6 +42,45 @@ Visit the [Quickstart Guide](https://docs.medusajs.com/learn/installation) to se
 
 Visit the [Docs](https://docs.medusajs.com/learn/installation#get-started) to learn more about our system requirements.
 
+## Melhor Envio
+
+The Melhor Envio fulfillment provider is registered as `melhor-envio`.
+Create calculated shipping options in the Medusa Admin using the services returned by the provider.
+
+Required environment variables:
+
+```env
+MELHOR_ENVIO_CLIENT_ID=
+MELHOR_ENVIO_CLIENT_SECRET=
+MELHOR_ENVIO_REDIRECT_URI=
+MELHOR_ENVIO_TOKEN=
+MELHOR_ENVIO_REFRESH_TOKEN=
+MELHOR_ENVIO_FROM_POSTAL_CODE=
+MELHOR_ENVIO_SANDBOX=true
+MELHOR_ENVIO_USER_AGENT=Super Raca Store (suporte@example.com)
+```
+
+`MELHOR_ENVIO_USER_AGENT` must contain your application name and a real technical contact email. Keep `MELHOR_ENVIO_AUTO_PURCHASE=false` until the wallet/payment flow is ready; when set to `true`, fulfillment creation checks out, generates, and prints the Melhor Envio label.
+
+## Stripe
+
+The Stripe payment provider is registered as `stripe`; in Medusa Admin / Store API it appears as `pp_stripe_stripe`.
+Enable it in the BR / BRL region, then configure the Stripe webhook URL:
+
+```txt
+https://your-backend.example.com/hooks/payment/stripe_stripe
+```
+
+Required environment variables:
+
+```env
+STRIPE_API_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_CAPTURE=true
+```
+
+Enable Pix and card methods in the Stripe Dashboard. The storefront uses Stripe Payment Element, so Stripe controls which eligible methods appear for the cart currency, customer, and account settings.
+
 ## What is Medusa
 
 Medusa is a set of commerce modules and tools that allow you to build rich, reliable, and performant commerce applications without reinventing core commerce logic. The modules can be customized and used to build advanced ecommerce stores, marketplaces, or any product that needs foundational commerce primitives. All modules are open-source and freely available on npm.

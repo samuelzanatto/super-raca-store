@@ -24,6 +24,57 @@ module.exports = defineConfig({
       resolve: "@medusajs/medusa/translation",
     },
     {
+      resolve: "@medusajs/medusa/fulfillment",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/fulfillment-manual",
+            id: "manual",
+          },
+          {
+            resolve: "./src/modules/melhor-envio-fulfillment",
+            id: "melhor-envio",
+            options: {
+              client_id: process.env.MELHOR_ENVIO_CLIENT_ID,
+              client_secret: process.env.MELHOR_ENVIO_CLIENT_SECRET,
+              redirect_uri: process.env.MELHOR_ENVIO_REDIRECT_URI,
+              token: process.env.MELHOR_ENVIO_TOKEN,
+              refresh_token: process.env.MELHOR_ENVIO_REFRESH_TOKEN,
+              from_postal_code: process.env.MELHOR_ENVIO_FROM_POSTAL_CODE,
+              sandbox: process.env.MELHOR_ENVIO_SANDBOX !== "false",
+              user_agent: process.env.MELHOR_ENVIO_USER_AGENT,
+              default_weight: process.env.MELHOR_ENVIO_DEFAULT_WEIGHT || "300",
+              default_height: process.env.MELHOR_ENVIO_DEFAULT_HEIGHT || "4",
+              default_width: process.env.MELHOR_ENVIO_DEFAULT_WIDTH || "16",
+              default_length: process.env.MELHOR_ENVIO_DEFAULT_LENGTH || "24",
+              weight_unit: process.env.MELHOR_ENVIO_WEIGHT_UNIT || "g",
+              timeout_ms: process.env.MELHOR_ENVIO_TIMEOUT_MS || "10000",
+              retries: process.env.MELHOR_ENVIO_RETRIES || "2",
+              auto_purchase: process.env.MELHOR_ENVIO_AUTO_PURCHASE === "true",
+              print_mode: process.env.MELHOR_ENVIO_PRINT_MODE || "public",
+            },
+          },
+        ],
+      },
+    },
+    {
+      resolve: "@medusajs/medusa/payment",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/payment-stripe",
+            id: "stripe",
+            options: {
+              apiKey: process.env.STRIPE_API_KEY,
+              webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+              capture: process.env.STRIPE_CAPTURE !== "false",
+              automatic_payment_methods: true,
+            },
+          },
+        ],
+      },
+    },
+    {
       resolve: "@medusajs/medusa/notification",
       options: {
         providers: [

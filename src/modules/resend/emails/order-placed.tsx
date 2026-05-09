@@ -6,7 +6,6 @@ import {
   Heading,
   Html,
   Img,
-  Link,
   Preview,
   Row,
   Section,
@@ -21,6 +20,69 @@ type OrderPlacedEmailProps = {
     customer: CustomerDTO
   }
 }
+
+type EmailImage = {
+  url?: string | null
+}
+
+type EmailOrderItem = NonNullable<OrderDTO["items"]>[number] & {
+  thumbnail?: string | null
+  product_thumbnail?: string | null
+  product?: {
+    thumbnail?: string | null
+    images?: EmailImage[] | null
+  } | null
+  variant?: {
+    product?: {
+      thumbnail?: string | null
+      images?: EmailImage[] | null
+    } | null
+  } | null
+}
+
+const normalizeBaseUrl = (url?: string | null) =>
+  (url || "").replace(/\/$/, "")
+
+const storefrontUrl = normalizeBaseUrl(
+  process.env.STOREFRONT_URL || "https://store.superraca.com"
+)
+
+const backendUrl = normalizeBaseUrl(
+  process.env.MEDUSA_BACKEND_URL || storefrontUrl
+)
+
+const getAbsoluteUrl = (rawUrl?: string | null) => {
+  const url = rawUrl?.trim()
+
+  if (!url || url.startsWith("data:")) {
+    return null
+  }
+
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url
+  }
+
+  if (url.startsWith("//")) {
+    return `https:${url}`
+  }
+
+  const baseUrl =
+    url.startsWith("/uploads") || url.startsWith("/static")
+      ? backendUrl
+      : storefrontUrl
+
+  return `${baseUrl}${url.startsWith("/") ? url : `/${url}`}`
+}
+
+const getProductImageUrl = (item: EmailOrderItem) =>
+  getAbsoluteUrl(
+    item.thumbnail ||
+      item.product_thumbnail ||
+      item.variant?.product?.thumbnail ||
+      item.product?.thumbnail ||
+      item.variant?.product?.images?.[0]?.url ||
+      item.product?.images?.[0]?.url
+  )
 
 function OrderPlacedEmailComponent({ order }: OrderPlacedEmailProps) {
   const formatter = new Intl.NumberFormat("pt-BR", {
@@ -50,12 +112,17 @@ function OrderPlacedEmailComponent({ order }: OrderPlacedEmailProps) {
           {/* Header */}
           <Section className="bg-[#1a1a2e] text-white px-6 py-6 text-center">
             <Img
-              src={`${process.env.STOREFRONT_URL || 'https://superraca.com'}/logo.png`}
+              src={`${storefrontUrl}/logo.png`}
               alt="Super Raça"
-              width="120"
-              height="40"
+              width="64"
+              height="64"
               className="mx-auto"
-              style={{ margin: "0 auto" }}
+              style={{
+                display: "block",
+                margin: "0 auto",
+                width: "64px",
+                height: "64px",
+              }}
             />
             <Text className="text-sm text-gray-300 m-0 mt-2">
               Vista sua fé com estilo
@@ -84,30 +151,47 @@ function OrderPlacedEmailComponent({ order }: OrderPlacedEmailProps) {
                 </Text>
               </Column>
             </Row>
-            {order.items?.map((item) => (
-              <Section key={item.id} className="border-b border-gray-200 py-4">
-                <Row>
-                  <Column className="w-1/3">
-                    <Img
-                      src={item.thumbnail ?? ""}
-                      alt={item.product_title ?? ""}
-                      className="rounded-lg"
-                      width="100%"
-                    />
-                  </Column>
-                  <Column className="w-2/3 pl-4">
-                    <Text className="text-lg font-semibold text-gray-800">
-                      {item.product_title}
-                    </Text>
-                    <Text className="text-gray-600">{item.variant_title}</Text>
-                    <Text className="text-gray-500 text-sm">Qtd: {item.quantity}</Text>
-                    <Text className="text-gray-800 mt-2 font-bold">
-                      {formatPrice(item.total)}
-                    </Text>
-                  </Column>
-                </Row>
-              </Section>
-            ))}
+            {order.items?.map((item) => {
+              const imageUrl = getProductImageUrl(item as EmailOrderItem)
+
+              return (
+                <Section key={item.id} className="border-b border-gray-200 py-4">
+                  <Row>
+                    <Column className="w-1/3" style={{ width: "140px" }}>
+                      {imageUrl ? (
+                        <Img
+                          src={imageUrl}
+                          alt={item.product_title ?? "Produto"}
+                          className="rounded-lg"
+                          width="120"
+                          style={{
+                            display: "block",
+                            width: "120px",
+                            maxWidth: "120px",
+                            height: "auto",
+                            borderRadius: "8px",
+                          }}
+                        />
+                      ) : (
+                        <Text className="text-gray-500 text-sm m-0">
+                          Imagem indisponível
+                        </Text>
+                      )}
+                    </Column>
+                    <Column className="w-2/3 pl-4">
+                      <Text className="text-lg font-semibold text-gray-800">
+                        {item.product_title}
+                      </Text>
+                      <Text className="text-gray-600">{item.variant_title}</Text>
+                      <Text className="text-gray-500 text-sm">Qtd: {item.quantity}</Text>
+                      <Text className="text-gray-800 mt-2 font-bold">
+                        {formatPrice(item.total)}
+                      </Text>
+                    </Column>
+                  </Row>
+                </Section>
+              )
+            })}
 
             {/* Order Summary */}
             <Section className="mt-8">

@@ -2,6 +2,10 @@ import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
 
+const adminMaxUploadFileSize = Number(
+  process.env.MEDUSA_ADMIN_MAX_UPLOAD_FILE_SIZE || 10 * 1024 * 1024
+)
+
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -106,6 +110,7 @@ module.exports = defineConfig({
               endpoint: process.env.S3_ENDPOINT,
               additional_client_config: {
                 forcePathStyle: true,
+                requestChecksumCalculation: "WHEN_REQUIRED",
               },
             },
           },
@@ -118,6 +123,6 @@ module.exports = defineConfig({
   },
   admin: {
     backendUrl: process.env.MEDUSA_BACKEND_URL || "http://localhost:9000",
-    maxUploadFileSize: 2 * 1024 * 1024,
+    maxUploadFileSize: adminMaxUploadFileSize,
   },
 })

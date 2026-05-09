@@ -42,11 +42,15 @@ export const PUT = async (
   try {
     const { id } = req.params
     const bannerService = req.scope.resolve(BANNER_MODULE)
+    const payload = { ...req.body }
+    if (typeof payload.image_url === "string") {
+      payload.image_url = payload.image_url.trim()
+    }
 
     const banners = await bannerService.updateBanners([
       {
         id,
-        ...req.body,
+        ...payload,
       },
     ])
 

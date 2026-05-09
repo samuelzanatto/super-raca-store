@@ -28,10 +28,16 @@ export const POST = async (
       order = 0,
     } = req.body
 
+    if (!image_url?.trim()) {
+      return res.status(400).json({
+        message: "Banner image URL is required",
+      })
+    }
+
     const banner = await bannerService.createBanners({
       title,
       description,
-      image_url,
+      image_url: image_url.trim(),
       link,
       link_text,
       is_active,

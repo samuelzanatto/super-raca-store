@@ -22,8 +22,7 @@ import {
 const bannerSchema = z.object({
   title: z.string().min(1, "Título é obrigatório"),
   description: z.string().optional(),
-  image_url: z.string().optional(),
-  image_data: z.string().optional(), // Base64 da imagem
+  image_url: z.string().min(1, "Imagem e obrigatoria"),
   link: z.string().min(1, "Link é obrigatório"),
   link_text: z.string().optional(),
   is_active: z.boolean().default(true),
@@ -39,6 +38,29 @@ type Banner = BannerFormData & {
 export const config = defineRouteConfig({
   label: "Banners",
 })
+
+async function uploadBannerImage(file: File): Promise<string> {
+  const formData = new FormData()
+  formData.append("files", file)
+
+  const response = await fetch("/admin/uploads", {
+    method: "POST",
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error("Failed to upload banner image")
+  }
+
+  const data = await response.json()
+  const uploadedFile = data.files?.[0]
+
+  if (!uploadedFile?.url) {
+    throw new Error("Upload did not return an image URL")
+  }
+
+  return uploadedFile.url
+}
 
 export default function BannersPage() {
   const [banners, setBanners] = useState<Banner[]>([])
@@ -188,6 +210,7 @@ function CreateBannerModal({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [imagePreview, setImagePreview] = useState<string>("")
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
 
   const form = useForm<BannerFormData>({
     resolver: zodResolver(bannerSchema),
@@ -195,7 +218,6 @@ function CreateBannerModal({
       title: "",
       description: "",
       image_url: "",
-      image_data: "",
       link: "",
       link_text: "",
       is_active: true,
@@ -203,7 +225,7 @@ function CreateBannerModal({
     },
   })
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -212,67 +234,26 @@ function CreateBannerModal({
       return
     }
 
-    // Ler e comprimir imagem
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const img = new Image()
-      img.onload = () => {
-        let compressedBase64 = ""
-        let quality = 0.6 // Começar com qualidade mais baixa
-        let maxSize = 800 // Tamanho máximo reduzido
+    const previewUrl = URL.createObjectURL(file)
+    setImagePreview(previewUrl)
+    setIsUploadingImage(true)
 
-        const compressImage = () => {
-          const canvas = document.createElement("canvas")
-          const ctx = canvas.getContext("2d")
-          if (!ctx) return
-
-          // Redimensionar mantendo aspecto
-          let width = img.width
-          let height = img.height
-
-          if (width > height) {
-            if (width > maxSize) {
-              height = (height * maxSize) / width
-              width = maxSize
-            }
-          } else {
-            if (height > maxSize) {
-              width = (width * maxSize) / height
-              height = maxSize
-            }
-          }
-
-          canvas.width = width
-          canvas.height = height
-          ctx.drawImage(img, 0, 0, width, height)
-
-          // Converter para base64 com compressão JPEG
-          compressedBase64 = canvas.toDataURL("image/jpeg", quality)
-
-          // Se ainda estiver muito grande, reduzir qualidade
-          if (compressedBase64.length > 100000 && quality > 0.3) {
-            quality -= 0.1
-            compressImage() // Tentar novamente com qualidade mais baixa
-            return
-          }
-
-          form.setValue("image_data", compressedBase64)
-          setImagePreview(compressedBase64)
-
-          // Mostrar aviso se a imagem ainda estiver grande
-          const sizeKB = Math.round(compressedBase64.length / 1024)
-          if (sizeKB > 500) {
-            toast.error(
-              `Imagem muito grande (${sizeKB}KB). Selecione uma imagem menor.`
-            )
-          }
-        }
-
-        compressImage()
-      }
-      img.src = event.target?.result as string
+    try {
+      const imageUrl = await uploadBannerImage(file)
+      form.setValue("image_url", imageUrl, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+      setImagePreview(imageUrl)
+      toast.success("Imagem enviada com sucesso")
+    } catch (error) {
+      console.error("Error uploading banner image:", error)
+      toast.error("Erro ao enviar imagem do banner")
+      setImagePreview("")
+    } finally {
+      setIsUploadingImage(false)
+      URL.revokeObjectURL(previewUrl)
     }
-    reader.readAsDataURL(file)
   }
 
   const handleSubmit = form.handleSubmit(async (data) => {
@@ -346,9 +327,11 @@ function CreateBannerModal({
                 type="button"
                 variant="secondary"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImage}
+                isLoading={isUploadingImage}
                 className="w-full"
               >
-                Selecionar Imagem
+                {isUploadingImage ? "Enviando imagem..." : "Selecionar Imagem"}
               </Button>
               {imagePreview && (
                 <div className="mt-3 max-h-48 overflow-hidden rounded-lg border border-ui-border-base">
@@ -368,7 +351,7 @@ function CreateBannerModal({
               render={({ field, fieldState: { error } }) => (
                 <div className="flex flex-col gap-y-2 py-2">
                   <Label size="small" weight="plus">
-                    URL da Imagem (opcional)
+                    URL da Imagem
                   </Label>
                   <Input
                     {...field}
@@ -456,7 +439,12 @@ function CreateBannerModal({
               >
                 Cancelar
               </Button>
-              <Button type="submit" variant="primary">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={isUploadingImage || !form.watch("image_url")}
+                isLoading={isUploadingImage}
+              >
                 Criar Banner
               </Button>
             </div>
@@ -479,8 +467,9 @@ function EditBannerDrawer({
   onSuccess: () => void
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [imagePreview, setImagePreview] = useState<string>(
-    banner.image_data || banner.image_url || ""
+    banner.image_url || ""
   )
 
   const form = useForm<BannerFormData>({
@@ -489,7 +478,6 @@ function EditBannerDrawer({
       title: banner.title,
       description: banner.description || "",
       image_url: banner.image_url || "",
-      image_data: banner.image_data || "",
       link: banner.link,
       link_text: banner.link_text || "",
       is_active: banner.is_active,
@@ -497,7 +485,7 @@ function EditBannerDrawer({
     },
   })
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -506,67 +494,26 @@ function EditBannerDrawer({
       return
     }
 
-    // Ler e comprimir imagem
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      const img = new Image()
-      img.onload = () => {
-        let compressedBase64 = ""
-        let quality = 0.6 // Começar com qualidade mais baixa
-        let maxSize = 800 // Tamanho máximo reduzido
+    const previewUrl = URL.createObjectURL(file)
+    setImagePreview(previewUrl)
+    setIsUploadingImage(true)
 
-        const compressImage = () => {
-          const canvas = document.createElement("canvas")
-          const ctx = canvas.getContext("2d")
-          if (!ctx) return
-
-          // Redimensionar mantendo aspecto
-          let width = img.width
-          let height = img.height
-
-          if (width > height) {
-            if (width > maxSize) {
-              height = (height * maxSize) / width
-              width = maxSize
-            }
-          } else {
-            if (height > maxSize) {
-              width = (width * maxSize) / height
-              height = maxSize
-            }
-          }
-
-          canvas.width = width
-          canvas.height = height
-          ctx.drawImage(img, 0, 0, width, height)
-
-          // Converter para base64 com compressão JPEG
-          compressedBase64 = canvas.toDataURL("image/jpeg", quality)
-
-          // Se ainda estiver muito grande, reduzir qualidade
-          if (compressedBase64.length > 100000 && quality > 0.3) {
-            quality -= 0.1
-            compressImage() // Tentar novamente com qualidade mais baixa
-            return
-          }
-
-          form.setValue("image_data", compressedBase64)
-          setImagePreview(compressedBase64)
-
-          // Mostrar aviso se a imagem ainda estiver grande
-          const sizeKB = Math.round(compressedBase64.length / 1024)
-          if (sizeKB > 500) {
-            toast.error(
-              `Imagem muito grande (${sizeKB}KB). Selecione uma imagem menor.`
-            )
-          }
-        }
-
-        compressImage()
-      }
-      img.src = event.target?.result as string
+    try {
+      const imageUrl = await uploadBannerImage(file)
+      form.setValue("image_url", imageUrl, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+      setImagePreview(imageUrl)
+      toast.success("Imagem enviada com sucesso")
+    } catch (error) {
+      console.error("Error uploading banner image:", error)
+      toast.error("Erro ao enviar imagem do banner")
+      setImagePreview("")
+    } finally {
+      setIsUploadingImage(false)
+      URL.revokeObjectURL(previewUrl)
     }
-    reader.readAsDataURL(file)
   }
 
   const handleSubmit = form.handleSubmit(async (data) => {
@@ -634,9 +581,11 @@ function EditBannerDrawer({
                 type="button"
                 variant="secondary"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingImage}
+                isLoading={isUploadingImage}
                 className="w-full"
               >
-                Alterar Imagem
+                {isUploadingImage ? "Enviando imagem..." : "Alterar Imagem"}
               </Button>
               {imagePreview && (
                 <div className="mt-3 max-h-48 overflow-hidden rounded-lg border border-ui-border-base">
@@ -656,7 +605,7 @@ function EditBannerDrawer({
               render={({ field, fieldState: { error } }) => (
                 <div className="flex flex-col gap-y-2 py-2">
                   <Label size="small" weight="plus">
-                    URL da Imagem (opcional)
+                    URL da Imagem
                   </Label>
                   <Input
                     {...field}
@@ -738,7 +687,13 @@ function EditBannerDrawer({
                   Cancelar
                 </Button>
               </Drawer.Close>
-              <Button size="small" type="submit" variant="primary">
+              <Button
+                size="small"
+                type="submit"
+                variant="primary"
+                disabled={isUploadingImage || !form.watch("image_url")}
+                isLoading={isUploadingImage}
+              >
                 Salvar
               </Button>
             </div>

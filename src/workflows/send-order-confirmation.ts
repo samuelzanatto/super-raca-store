@@ -4,6 +4,7 @@ import {
   WorkflowResponse,
 } from "@medusajs/framework/workflows-sdk"
 import { useQueryGraphStep } from "@medusajs/medusa/core-flows"
+import { enrichOrderItemImagesStep } from "./steps/enrich-order-item-images"
 import { sendNotificationStep } from "./steps/send-notification"
 
 type WorkflowInput = {
@@ -43,14 +44,18 @@ export const sendOrderConfirmationWorkflow = createWorkflow(
       },
     })
 
-    const notification = when({ orders }, (data) => !!data.orders[0].email)
+    const order = enrichOrderItemImagesStep({
+      order: orders[0],
+    })
+
+    const notification = when({ order }, (data) => !!data.order.email)
       .then(() => {
         return sendNotificationStep([{
-          to: orders[0].email!,
+          to: order.email!,
           channel: "email",
           template: "order-placed",
           data: {
-            order: orders[0],
+            order,
           },
         }])
       })

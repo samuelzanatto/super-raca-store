@@ -1,6 +1,8 @@
+import path from "path"
 import { loadEnv, defineConfig } from '@medusajs/framework/utils'
 
 loadEnv(process.env.NODE_ENV || 'development', process.cwd())
+loadEnv(process.env.NODE_ENV || 'development', path.resolve(process.cwd(), ".."))
 
 const adminMaxUploadFileSize = Number(
   process.env.MEDUSA_ADMIN_MAX_UPLOAD_FILE_SIZE || 10 * 1024 * 1024
@@ -19,9 +21,11 @@ module.exports = defineConfig({
   },
   modules: [
     {
+      key: "banner",
       resolve: "./src/modules/banner",
     },
     {
+      key: "homepage_section",
       resolve: "./src/modules/homepage_section",
     },
     {

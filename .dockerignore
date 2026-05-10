@@ -1,0 +1,9 @@
+node_modules
+.medusa
+.cache
+uploads
+.git
+.env
+.env.*
+db_dump.sql
+npm-debug.log*

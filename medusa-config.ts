@@ -8,7 +8,7 @@ const adminMaxUploadFileSize = Number(
   process.env.MEDUSA_ADMIN_MAX_UPLOAD_FILE_SIZE || 10 * 1024 * 1024
 )
 
-module.exports = defineConfig({
+export default defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     http: {

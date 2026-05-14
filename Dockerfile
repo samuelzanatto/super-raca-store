@@ -3,15 +3,16 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 ARG NODE_ENV=production
-ARG MEDUSA_BACKEND_URL
+ARG MEDUSA_BACKEND_URL=https://api.superraca.com
 
-ENV NODE_ENV=$NODE_ENV
 ENV MEDUSA_BACKEND_URL=$MEDUSA_BACKEND_URL
+ENV MEDUSA_TELEMETRY_DISABLED=true
 
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 COPY . .
+ENV NODE_ENV=$NODE_ENV
 RUN npm run build && test -d .medusa/server
 
 FROM node:22-alpine AS runner

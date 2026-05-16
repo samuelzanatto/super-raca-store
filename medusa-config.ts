@@ -133,6 +133,7 @@ export default defineConfig({
     translation: true,
   },
   admin: {
+    path: "/app",
     backendUrl,
     disable: process.env.DISABLE_MEDUSA_ADMIN === "true",
     maxUploadFileSize: adminMaxUploadFileSize,

@@ -39,9 +39,47 @@ export const config = defineRouteConfig({
   label: "Banners",
 })
 
+const IMAGE_MIME_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+  "image/avif": ".avif",
+  "image/svg+xml": ".svg",
+}
+
+function sanitizeUploadFileName(file: File): string {
+  const extensionMatch = file.name.match(/\.[a-zA-Z0-9]+$/)
+  const extension =
+    extensionMatch?.[0].toLowerCase() || IMAGE_MIME_EXTENSIONS[file.type] || ""
+  const rawName = extension ? file.name.slice(0, -extension.length) : file.name
+  const safeName = rawName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase()
+
+  return `${safeName || "banner-image"}${extension}`
+}
+
+function createUploadFile(file: File): File {
+  const safeFileName = sanitizeUploadFileName(file)
+
+  if (safeFileName === file.name) {
+    return file
+  }
+
+  return new File([file], safeFileName, {
+    type: file.type,
+    lastModified: file.lastModified,
+  })
+}
+
 async function uploadBannerImage(file: File): Promise<string> {
+  const uploadFile = createUploadFile(file)
   const formData = new FormData()
-  formData.append("files", file)
+  formData.append("files", uploadFile, uploadFile.name)
 
   const response = await fetch("/admin/uploads", {
     method: "POST",
